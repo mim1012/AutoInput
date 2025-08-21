@@ -7,7 +7,12 @@ import importlib
 import sys
 from ev_automation.browser import create_stealth_browser, create_normal_browser, create_browser_with_reuse, create_browser_simple, start_chrome_with_debugging
 from ev_automation.excel_loader import load_users_from_excel
+<<<<<<< HEAD
 from ev_automation.fill_fields import build_fill_script, fill_fields_selenium_human_like
+=======
+from ev_automation.fill_fields import build_fill_script, fill_fields_selenium
+from ev_automation.temp_save import run_temp_save, finalize_temp_save
+>>>>>>> 26e7c6a (임시저장 기능 강화 - 버튼 찾기 및 저장 완료 대기 로직 개선)
 from ev_automation.file_attachment import attach_pdf_files, find_and_click_submit_button, handle_final_popup
 from selenium.webdriver.common.by import By
 
@@ -487,6 +492,7 @@ class AutomationGUI:
                     continue
                 
 <<<<<<< HEAD
+<<<<<<< HEAD
                 # 2단계: 임시저장 (개선된 버전)
                 self.log_message("💾 2단계: 임시저장 진행 중...")
                 if force_temp_save_with_retry(self.driver, max_retries=3):
@@ -503,8 +509,27 @@ class AutomationGUI:
                 self.log_message("   3. 지원 신청 버튼 클릭")
                 self.log_message("   4. 최종 팝업 처리")
 >>>>>>> 876adf0 (필드 입력까지만 자동화하도록 수정 - 임시저장부터는 수동 처리)
+=======
+                # 2단계: 임시저장 시도
+                self.log_message("💾 2단계: 임시저장 시도 중...")
+                try:
+                    temp_save_success = run_temp_save(self.driver)
+                    if temp_save_success:
+                        self.log_message("✅ 임시저장 성공!")
+                    else:
+                        self.log_message("⚠️ 임시저장 실패 - 수동으로 시도해주세요")
+                except Exception as e:
+                    self.log_message(f"❌ 임시저장 중 오류: {e}")
+                    self.log_message("📋 수동으로 임시저장을 진행해주세요")
+>>>>>>> 26e7c6a (임시저장 기능 강화 - 버튼 찾기 및 저장 완료 대기 로직 개선)
                 
-                self.log_message(f"🎉 {user['성명']} 필드 입력 완료!")
+                # 3단계: 나머지는 수동 처리
+                self.log_message("📋 다음 단계는 수동으로 진행해주세요:")
+                self.log_message("   1. PDF 파일 첨부")
+                self.log_message("   2. 지원 신청 버튼 클릭")
+                self.log_message("   3. 최종 팝업 처리")
+                
+                self.log_message(f"🎉 {user['성명']} 처리 완료!")
                 
                 # 다음 사용자 처리 전 대기
                 if i < len(selected_users) - 1:
