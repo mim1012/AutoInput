@@ -9,6 +9,7 @@ import random
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from ev_automation.verification_code import extract_code_smart, input_reversed_code
 
 def wait_for_temp_save_button(driver, timeout=10):
     """
@@ -27,6 +28,9 @@ def wait_for_temp_save_button(driver, timeout=10):
             ".temp_save",
             ".btnTempSave",
             ".btn_temp_save",
+            ".btn-blue[onclick*='goSave']",
+            "button[onclick*='goSave']",
+            "input[onclick*='goSave']",
             "button[onclick*='tempSave']",
             "button[onclick*='temp_save']",
             "input[onclick*='tempSave']",
@@ -76,11 +80,11 @@ def wait_for_temp_save_button(driver, timeout=10):
                 if not element.is_displayed():
                     continue
                     
-                text = element.text.lower()
-                value = element.get_attribute('value', '').lower()
-                onclick = element.get_attribute('onclick', '').lower()
-                class_name = element.get_attribute('class', '').lower()
-                id_name = element.get_attribute('id', '').lower()
+                text = (element.text or '').lower()
+                value = (element.get_attribute('value') or '').lower()
+                onclick = (element.get_attribute('onclick') or '').lower()
+                class_name = (element.get_attribute('class') or '').lower()
+                id_name = (element.get_attribute('id') or '').lower()
                 
                 # 임시저장 관련 키워드 확인
                 save_keywords = ['임시저장', 'temp', 'save', '저장']
@@ -113,8 +117,8 @@ def wait_for_temp_save_button(driver, timeout=10):
                     if not button.is_displayed():
                         continue
                         
-                    text = button.text.lower()
-                    value = button.get_attribute('value', '').lower()
+                    text = (button.text or '').lower()
+                    value = (button.get_attribute('value') or '').lower()
                     
                     if '저장' in text or '저장' in value:
                         print(f"✅ 하단 버튼으로 찾음: {text or value}")
@@ -151,9 +155,9 @@ def simulate_human_temp_save(driver):
             return False
         
         # 3. 버튼 정보 출력
-        button_text = temp_save_button.text or temp_save_button.get_attribute('value', '')
+        button_text = temp_save_button.text or (temp_save_button.get_attribute('value') or '')
         button_tag = temp_save_button.tag_name
-        button_type = temp_save_button.get_attribute('type', '')
+        button_type = (temp_save_button.get_attribute('type') or '')
         
         print(f"🔍 임시저장 버튼 발견:")
         print(f"   - 태그: {button_tag}")
@@ -162,9 +166,14 @@ def simulate_human_temp_save(driver):
         print(f"   - 표시됨: {temp_save_button.is_displayed()}")
         print(f"   - 활성화됨: {temp_save_button.is_enabled()}")
         
-        # 4. 버튼이 화면에 보이도록 스크롤
+        # 4. 폼 하단까지 충분히 스크롤한 후 버튼이 화면에 보이도록 다시 스크롤
+        try:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(0.4)
+        except Exception:
+            pass
         driver.execute_script("arguments[0].scrollIntoView({block:'center'});", temp_save_button)
-        time.sleep(random.uniform(1, 2))
+        time.sleep(0.3)
         
         # 5. 인간과 유사한 행동 시뮬레이션
         simulate_human_behavior(driver)
@@ -194,7 +203,50 @@ def simulate_human_temp_save(driver):
                     print(f"❌ 모든 클릭 방법 실패: {e3}")
                     return False
         
-        # 7. 저장 완료 대기
+        # 7. 팝업(자식창/iframe/모달) 처리: 확인코드 추출→역순 입력→확인
+        try:
+            main = driver.current_window_handle
+        except Exception:
+            main = None
+
+        # 7-a) alert 우선 수락
+        try:
+            WebDriverWait(driver, 2).until(EC.alert_is_present())
+            a = driver.switch_to.alert
+            print(f"🛎️ 확인창: {a.text}")
+            a.accept()
+            time.sleep(0.2)
+        except Exception:
+            pass
+
+        # 7-b) 자식창 처리
+        try:
+            handles = driver.window_handles
+            if main and len(handles) > 1:
+                child = [h for h in handles if h != main][0]
+                driver.switch_to.window(child)
+                print("🔄 자식창 전환 (임시저장 확인코드)")
+                code = extract_code_smart(driver)
+                if code:
+                    ok = input_reversed_code(driver, code)
+                    print(f"🔑 확인코드 처리: {ok}")
+                try:
+                    driver.close()
+                except Exception:
+                    pass
+                driver.switch_to.window(main)
+        except Exception as e:
+            print(f"⚠️ 자식창 처리 실패: {e}")
+
+        # 7-c) iframe/모달 여분 처리 (best-effort)
+        try:
+            code = extract_code_smart(driver)
+            if code:
+                input_reversed_code(driver, code)
+        except Exception:
+            pass
+
+        # 8. 저장 완료 대기
         print("⏳ 저장 완료 대기 중...")
         return wait_for_save_completion(driver)
         
@@ -366,15 +418,19 @@ def force_temp_save_with_retry(driver, max_retries=3):
             for field_id in required_fields:
                 try:
                     element = driver.find_element(By.ID, field_id)
-                    value = element.get_attribute('value', '').strip()
+                except Exception:
+                    # 요소가 없으면 누락으로 간주하지 않고 통과 (페이지 구조 차이 허용)
+                    print(f"   - {field_id}: 찾을 수 없음 (무시)")
+                    continue
+                try:
+                    value = (element.get_attribute('value') or '').strip()
                     if not value:
                         missing_fields.append(field_id)
                         print(f"   - {field_id}: 비어있음")
                     else:
                         print(f"   - {field_id}: {value[:10]}...")
-                except:
-                    missing_fields.append(field_id)
-                    print(f"   - {field_id}: 찾을 수 없음")
+                except Exception:
+                    print(f"   - {field_id}: 값 읽기 실패 (무시)")
             
             if missing_fields:
                 print(f"⚠️ 누락된 필드: {missing_fields}")
