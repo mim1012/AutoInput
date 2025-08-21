@@ -7,12 +7,8 @@ import importlib
 import sys
 from ev_automation.browser import create_stealth_browser, create_normal_browser, create_browser_with_reuse, create_browser_simple, start_chrome_with_debugging
 from ev_automation.excel_loader import load_users_from_excel
-<<<<<<< HEAD
 from ev_automation.fill_fields import build_fill_script, fill_fields_selenium_human_like
-=======
-from ev_automation.fill_fields import build_fill_script, fill_fields_selenium
 from ev_automation.temp_save import run_temp_save, finalize_temp_save
->>>>>>> 26e7c6a (임시저장 기능 강화 - 버튼 찾기 및 저장 완료 대기 로직 개선)
 from ev_automation.file_attachment import attach_pdf_files, find_and_click_submit_button, handle_final_popup
 from selenium.webdriver.common.by import By
 
@@ -349,11 +345,16 @@ class AutomationGUI:
                 messagebox.showerror("오류", "처리할 사용자를 선택해주세요.")
                 return
             
+            # 자동화 실행 상태 활성화
+            self.automation_running = True
+            
             # 준비 완료 버튼 비활성화
             self.ready_button.config(state=tk.DISABLED)
             
-            # 자동화 처리 시작
-            self.process_selected_users()
+            # 별도 스레드에서 자동화 처리 시작
+            self.automation_thread = threading.Thread(target=self.process_selected_users)
+            self.automation_thread.daemon = True
+            self.automation_thread.start()
             
         except Exception as e:
             self.log_message(f"❌ 준비 완료 처리 오류: {str(e)}")
@@ -378,6 +379,7 @@ class AutomationGUI:
             
             self.log_message(f"📝 {len(selected_users)}명의 사용자 처리 시작")
             
+            attempted_count = 0
             for i, user in enumerate(selected_users):
                 if not self.automation_running:
                     break
@@ -386,7 +388,11 @@ class AutomationGUI:
                 self.log_message(f"\n{'='*50}")
                 self.log_message(f"👤 사용자 처리 시작: {user['성명']}")
                 
+<<<<<<< HEAD
                 # 신청서 페이지 감지 (URL 또는 필드 존재)
+=======
+                # 신청서 페이지 감지 (URL 또는 필드 존재 여부로 판단)
+>>>>>>> ff5c8e5 (feat: fast-mode input, strict events, date picker API fallback, model matching, date normalization, form detection & completion guard; GUI wiring)
                 try:
                     on_form_page = False
                     try:
@@ -395,12 +401,17 @@ class AutomationGUI:
                             on_form_page = True
                     except Exception:
                         pass
+<<<<<<< HEAD
+=======
+
+>>>>>>> ff5c8e5 (feat: fast-mode input, strict events, date picker API fallback, model matching, date normalization, form detection & completion guard; GUI wiring)
                     if not on_form_page:
                         try:
                             _probe = self.driver.find_element(By.ID, 'req_nm')
                             on_form_page = _probe is not None
                         except Exception:
                             on_form_page = False
+<<<<<<< HEAD
                     if on_form_page:
                         self.log_message("✅ 신청서 페이지 감지됨")
                     else:
@@ -409,6 +420,16 @@ class AutomationGUI:
                             cu = self.driver.current_url
                         except Exception:
                             pass
+=======
+
+                    if on_form_page:
+                        self.log_message(f"✅ 신청서 페이지 감지됨")
+                    else:
+                        try:
+                            cu = self.driver.current_url
+                        except Exception:
+                            cu = '알수없음'
+>>>>>>> ff5c8e5 (feat: fast-mode input, strict events, date picker API fallback, model matching, date normalization, form detection & completion guard; GUI wiring)
                         self.log_message(f"❌ 신청서 페이지가 아닙니다: {cu}")
                         continue
                 except Exception as e:
@@ -417,11 +438,24 @@ class AutomationGUI:
                 
                 # 1단계: 신청서 필드 자동 입력
                 self.log_message("📝 1단계: 신청서 필드 입력 중...")
+                self.log_message(f"🔍 사용자 정보: {user.get('성명', '')} - {user.get('휴대전화', '')}")
                 try:
+<<<<<<< HEAD
                     # Fast 모드 인적 입력
                     success = fill_fields_selenium_human_like(self.driver, user, fast_mode=True)
                     if not success:
                         self.log_message(f"⚠️ {user.get('성명', '')} 필드 입력 일부 실패 (계속 진행)")
+=======
+                    # 사람처럼 입력 지연 제거(Fast 모드)
+                    self.log_message("🔄 fill_fields_selenium_human_like(fast_mode=True) 호출 중...")
+                    attempted_count += 1
+                    success = fill_fields_selenium_human_like(self.driver, user, fast_mode=True)
+                    self.log_message(f"📊 fill_fields_selenium_human_like 결과: {success}")
+                    if not success:
+                        self.log_message(f"⚠️ {user.get('성명', '')} 필드 입력이 완전히 성공하지 않았습니다")
+                        self.log_message("💡 일부 필드만 입력되었을 수 있지만 계속 진행합니다")
+                        # continue 제거 - 실패해도 계속 진행
+>>>>>>> ff5c8e5 (feat: fast-mode input, strict events, date picker API fallback, model matching, date normalization, form detection & completion guard; GUI wiring)
                     
                     # 생년월일 필드 누락 확인 및 재입력
                     self.log_message("🔍 생년월일 필드 누락 확인 중...")
@@ -484,13 +518,19 @@ class AutomationGUI:
                     time.sleep(3)
                     self.log_message("✅ 신청서 필드 입력 완료")
                     
-                    # 필드 입력 완료 후 추가 안정화 대기
-                    self.log_message("⏳ 임시저장 준비를 위한 추가 대기 중... (3초)")
-                    time.sleep(3)
+                    # 필드 입력 완료 후 수동 작업 안내
+                    self.log_message("📋 필드 입력 완료! 다음 단계는 수동으로 진행해주세요:")
+                    self.log_message("   1. 임시저장 버튼 클릭")
+                    self.log_message("   2. PDF 파일 첨부")
+                    self.log_message("   3. 지원 신청 버튼 클릭")
+                    self.log_message("   4. 최종 팝업 처리")
+                    
+                    self.log_message(f"🎉 {user['성명']} 필드 입력 완료 - 수동 작업 진행 중...")
                 except Exception as e:
                     self.log_message(f"❌ 필드 입력 실패: {e}")
                     continue
                 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
                 # 2단계: 임시저장 (개선된 버전)
@@ -531,6 +571,8 @@ class AutomationGUI:
                 
                 self.log_message(f"🎉 {user['성명']} 처리 완료!")
                 
+=======
+>>>>>>> ff5c8e5 (feat: fast-mode input, strict events, date picker API fallback, model matching, date normalization, form detection & completion guard; GUI wiring)
                 # 다음 사용자 처리 전 대기
                 if i < len(selected_users) - 1:
                     self.log_message("⏳ 다음 사용자 처리 전 3초 대기...")
@@ -542,9 +584,14 @@ class AutomationGUI:
                     time.sleep(3)
             
             if self.automation_running:
-                self.progress_var.set("자동화 완료")
-                self.log_message("\n🎊 모든 자동화 작업이 완료되었습니다!")
-                messagebox.showinfo("완료", "자동화가 성공적으로 완료되었습니다.")
+                if attempted_count > 0:
+                    self.progress_var.set("자동화 완료")
+                    self.log_message("\n🎊 모든 자동화 작업이 완료되었습니다!")
+                    messagebox.showinfo("완료", "자동화가 성공적으로 완료되었습니다.")
+                else:
+                    self.progress_var.set("대기")
+                    self.log_message("⚠️ 신청서 페이지가 감지되지 않아 입력을 수행하지 않았습니다.")
+                    messagebox.showwarning("안내", "신청서 페이지를 띄운 뒤 다시 '준비 완료'를 눌러주세요.")
             
         except Exception as e:
             self.log_message(f"❌ 사용자 처리 중 오류: {str(e)}")
