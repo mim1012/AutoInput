@@ -1,3 +1,91 @@
+def debug_model_selection(driver, model: str) -> dict:
+    """
+    차종 선택 디버깅을 위한 헬퍼 함수
+    
+    Args:
+        driver: Selenium WebDriver 인스턴스
+        model: 선택하려는 차종명
+        
+    Returns:
+        디버깅 정보 딕셔너리
+    """
+    debug_info = {
+        'model_to_select': model,
+        'available_options': [],
+        'element_found': False,
+        'element_id': None,
+        'element_name': None,
+        'element_type': None,
+        'current_value': None,
+        'error': None
+    }
+    
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import Select
+        
+        # 드롭다운 요소 찾기
+        try:
+            model_select = driver.find_element(By.ID, 'model_cd')
+            debug_info['element_found'] = True
+            debug_info['element_id'] = model_select.get_attribute('id')
+            debug_info['element_name'] = model_select.get_attribute('name')
+            debug_info['element_type'] = model_select.get_attribute('type')
+            debug_info['current_value'] = model_select.get_attribute('value')
+            
+            # 사용 가능한 옵션들 확인
+            select_element = Select(model_select)
+            for option in select_element.options:
+                option_text = option.text.strip()
+                option_value = option.get_attribute('value')
+                option_selected = option.is_selected()
+                debug_info['available_options'].append({
+                    'text': option_text,
+                    'value': option_value,
+                    'selected': option_selected
+                })
+                
+        except Exception as e:
+            debug_info['error'] = f"드롭다운 요소 찾기 실패: {e}"
+            
+            # 대안: 다른 선택자로 찾기
+            try:
+                # name 속성으로 찾기
+                model_select = driver.find_element(By.NAME, "model_cd")
+                debug_info['element_found'] = True
+                debug_info['element_name'] = model_select.get_attribute('name')
+                debug_info['current_value'] = model_select.get_attribute('value')
+            except:
+                try:
+                    # CSS 선택자로 찾기
+                    model_select = driver.find_element(By.CSS_SELECTOR, "select[name*='model']")
+                    debug_info['element_found'] = True
+                    debug_info['element_name'] = model_select.get_attribute('name')
+                    debug_info['current_value'] = model_select.get_attribute('value')
+                except Exception as e2:
+                    debug_info['error'] = f"모든 방법으로 찾기 실패: {e2}"
+        
+        # 페이지의 모든 select 요소 확인
+        try:
+            all_selects = driver.find_elements(By.TAG_NAME, "select")
+            debug_info['all_selects'] = []
+            for i, select in enumerate(all_selects):
+                select_info = {
+                    'index': i,
+                    'id': select.get_attribute('id'),
+                    'name': select.get_attribute('name'),
+                    'class': select.get_attribute('class'),
+                    'options_count': len(select.find_elements(By.TAG_NAME, "option"))
+                }
+                debug_info['all_selects'].append(select_info)
+        except Exception as e:
+            debug_info['error'] = f"전체 select 요소 확인 실패: {e}"
+            
+    except Exception as e:
+        debug_info['error'] = f"디버깅 중 오류: {e}"
+    
+    return debug_info
+
 def fill_readonly_field_selenium(driver, field_id: str, value: str) -> bool:
     """
     Selenium을 사용해서 readonly 필드에 값을 입력
@@ -35,7 +123,7 @@ def fill_readonly_field_selenium(driver, field_id: str, value: str) -> bool:
 def fill_fields_selenium(driver, user_data: dict) -> bool:
     """
     Selenium을 사용해서 모든 필드에 데이터 입력
-    JavaScript에서 성공한 방식을 Python으로 구현
+    개선된 순서와 검증 로직 포함
     
     Args:
         driver: Selenium WebDriver 인스턴스
@@ -53,20 +141,6 @@ def fill_fields_selenium(driver, user_data: dict) -> bool:
         print("🚀 Selenium으로 필드 자동 입력 시작...")
         print(f"📊 입력할 데이터: {user_data}")
         
-        # 페이지의 모든 입력 필드 확인 (디버깅용)
-        try:
-            all_inputs = driver.find_elements(By.TAG_NAME, "input")
-            print(f"🔍 페이지의 모든 input 필드 수: {len(all_inputs)}")
-            
-            for i, inp in enumerate(all_inputs[:10]):  # 처음 10개만 출력
-                field_id = inp.get_attribute('id') or 'no-id'
-                field_name = inp.get_attribute('name') or 'no-name'
-                field_type = inp.get_attribute('type') or 'no-type'
-                field_value = inp.get_attribute('value') or 'no-value'
-                print(f"  {i+1}. id={field_id}, name={field_name}, type={field_type}, value={field_value}")
-        except Exception as e:
-            print(f"❌ 필드 확인 실패: {e}")
-        
         # 데이터 추출
         name = user_data.get('성명', '')
         phone = user_data.get('휴대전화', '')
@@ -83,8 +157,12 @@ def fill_fields_selenium(driver, user_data: dict) -> bool:
         
         wait = WebDriverWait(driver, 10)
         
-        # 1. 기본 정보 입력
-        fields = [
+        # 입력 결과 추적
+        input_results = {}
+        
+        # 1단계: 필수 기본 정보 (가장 안정적인 필드들부터)
+        print("\n📝 1단계: 기본 정보 입력")
+        basic_fields = [
             ('req_nm', name, '성명'),
             ('mobile', phone, '휴대전화'),
             ('email', email, '이메일'),
@@ -92,103 +170,256 @@ def fill_fields_selenium(driver, user_data: dict) -> bool:
             ('req_cnt', count, '신청대수')
         ]
         
-        for field_id, value, desc in fields:
+        for field_id, value, desc in basic_fields:
             if value:
                 try:
                     element = wait.until(EC.presence_of_element_located((By.ID, field_id)))
                     element.clear()
                     element.send_keys(value)
-                    print(f"✅ {desc} 입력 완료: {value}")
+                    
+                    # 입력 검증
+                    actual_value = element.get_attribute('value')
+                    if actual_value == value:
+                        print(f"✅ {desc} 입력 완료: {value}")
+                        input_results[desc] = True
+                    else:
+                        print(f"⚠️ {desc} 값 불일치: 입력={value}, 실제={actual_value}")
+                        input_results[desc] = False
                 except Exception as e:
                     print(f"❌ {desc} 입력 실패: {e}")
+                    input_results[desc] = False
         
-        # 2. 주소 입력 (readonly 처리)
-        if addr:
-            success = fill_readonly_field_selenium(driver, 'addr', addr)
-            if success:
-                print(f"✅ 주소 입력 완료: {addr}")
+        # 2단계: 드롭다운 선택 (페이지 로드 후)
+        print("\n📝 2단계: 드롭다운 선택")
         
-        # 3. 상세주소 입력
+        # 신청유형 선택 (개인)
+        try:
+            select_element = Select(driver.find_element(By.ID, 'req_kind'))
+            select_element.select_by_value('P')
+            print("✅ 신청유형 선택 완료: 개인")
+            input_results['신청유형'] = True
+        except Exception as e:
+            print(f"❌ 신청유형 선택 실패: {e}")
+            input_results['신청유형'] = False
+        
+        # 차종 선택 (강화된 로직)
+        if model:
+            print(f"🔍 차종 선택 시작: {model}")
+            
+            try:
+                # 드롭다운 요소 찾기
+                model_select = driver.find_element(By.ID, 'model_cd')
+                select_element = Select(model_select)
+                
+                # 현재 사용 가능한 옵션들 확인
+                available_options = []
+                for option in select_element.options:
+                    option_text = option.text.strip()
+                    option_value = option.get_attribute('value')
+                    available_options.append((option_text, option_value))
+                    print(f"  📋 사용 가능한 옵션: {option_text} (값: {option_value})")
+                
+                # 차종 매핑 로직 (더 정확한 매칭)
+                model_code = None
+                model_lower = model.lower()
+                
+                # 1단계: 정확한 매칭
+                for option_text, option_value in available_options:
+                    if model_lower in option_text.lower() or option_text.lower() in model_lower:
+                        model_code = option_value
+                        print(f"✅ 정확한 매칭 발견: {option_text} → {option_value}")
+                        break
+                
+                # 2단계: 부분 매칭 (정확한 매칭이 없을 경우)
+                if not model_code:
+                    if 'ev3' in model_lower and '스탠다드' in model_lower:
+                        for option_text, option_value in available_options:
+                            if 'ev3' in option_text.lower() and '스탠다드' in option_text.lower():
+                                model_code = option_value
+                                print(f"✅ EV3 스탠다드 매칭: {option_text} → {option_value}")
+                                break
+                    elif 'ev3' in model_lower and '롱레인지' in model_lower:
+                        for option_text, option_value in available_options:
+                            if 'ev3' in option_text.lower() and '롱레인지' in option_text.lower():
+                                model_code = option_value
+                                print(f"✅ EV3 롱레인지 매칭: {option_text} → {option_value}")
+                                break
+                    elif '레이' in model_lower:
+                        for option_text, option_value in available_options:
+                            if '레이' in option_text.lower():
+                                model_code = option_value
+                                print(f"✅ 레이EV 매칭: {option_text} → {option_value}")
+                                break
+                
+                # 3단계: 기본값 매칭 (매칭이 없을 경우)
+                if not model_code and available_options:
+                    # 첫 번째 옵션을 기본값으로 선택
+                    model_code = available_options[0][1]
+                    print(f"⚠️ 매칭 없음, 기본값 선택: {available_options[0][0]} → {model_code}")
+                
+                # 차종 선택 실행
+                if model_code:
+                    try:
+                        # 기존 선택 해제
+                        select_element.deselect_all()
+                        time.sleep(0.5)
+                        
+                        # 새 값 선택
+                        select_element.select_by_value(model_code)
+                        time.sleep(0.5)
+                        
+                        # 선택 확인
+                        selected_option = select_element.first_selected_option
+                        if selected_option and selected_option.get_attribute('value') == model_code:
+                            print(f"✅ 차종 선택 완료: {selected_option.text} (값: {model_code})")
+                            input_results['신청차종'] = True
+                        else:
+                            print(f"⚠️ 차종 선택 확인 실패")
+                            input_results['신청차종'] = False
+                            
+                    except Exception as e:
+                        print(f"❌ 차종 선택 실행 실패: {e}")
+                        input_results['신청차종'] = False
+                        
+                        # JavaScript로 재시도
+                        try:
+                            js_script = f"""
+                            try {{
+                                const select = document.getElementById('model_cd');
+                                if (select) {{
+                                    select.value = '{model_code}';
+                                    select.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                    console.log('차종 선택 완료 (JavaScript):', select.value);
+                                    return true;
+                                }}
+                                return false;
+                            }} catch(e) {{
+                                console.error('차종 선택 실패:', e);
+                                return false;
+                            }}
+                            """
+                            result = driver.execute_script(js_script)
+                            if result:
+                                print(f"✅ 차종 선택 완료 (JavaScript): {model_code}")
+                                input_results['신청차종'] = True
+                            else:
+                                print(f"❌ JavaScript 차종 선택도 실패")
+                                input_results['신청차종'] = False
+                        except Exception as e2:
+                            print(f"❌ JavaScript 차종 선택 실패: {e2}")
+                            input_results['신청차종'] = False
+                else:
+                    print(f"❌ 차종 매칭 실패: {model}")
+                    input_results['신청차종'] = False
+                    
+            except Exception as e:
+                print(f"❌ 차종 선택 중 오류: {e}")
+                input_results['신청차종'] = False
+                
+                # 디버깅 정보 출력
+                print("🔍 차종 선택 디버깅 정보:")
+                debug_info = debug_model_selection(driver, model)
+                print(f"  선택하려는 차종: {debug_info['model_to_select']}")
+                print(f"  요소 발견: {debug_info['element_found']}")
+                if debug_info['element_found']:
+                    print(f"  요소 ID: {debug_info['element_id']}")
+                    print(f"  요소 Name: {debug_info['element_name']}")
+                    print(f"  현재 값: {debug_info['current_value']}")
+                
+                if debug_info['available_options']:
+                    print("  사용 가능한 옵션들:")
+                    for option in debug_info['available_options']:
+                        status = "✅ 선택됨" if option['selected'] else "  "
+                        print(f"    {status} {option['text']} (값: {option['value']})")
+                
+                if debug_info.get('all_selects'):
+                    print("  페이지의 모든 select 요소:")
+                    for select in debug_info['all_selects']:
+                        print(f"    {select['index']}. id={select['id']}, name={select['name']}, 옵션수={select['options_count']}")
+                
+                if debug_info['error']:
+                    print(f"  오류: {debug_info['error']}")
+        
+        # 3단계: readonly 필드들 (JavaScript 처리)
+        print("\n📝 3단계: readonly 필드 처리")
+        
+        readonly_fields = [
+            ('addr', addr, '주소'),
+            ('contract_day', contract, '계약일자'),
+            ('delivery_sch_day', delivery, '출고예정일자')
+        ]
+        
+        for field_id, value, desc in readonly_fields:
+            if value:
+                success = fill_readonly_field_selenium(driver, field_id, value)
+                if success:
+                    print(f"✅ {desc} 입력 완료: {value}")
+                    input_results[desc] = True
+                else:
+                    print(f"❌ {desc} 입력 실패")
+                    input_results[desc] = False
+        
+        # 4단계: 상세주소 (일반 입력)
         if addr_detail:
             try:
                 element = driver.find_element(By.ID, 'addr_detail')
                 element.clear()
                 element.send_keys(addr_detail)
                 print(f"✅ 상세주소 입력 완료: {addr_detail}")
+                input_results['상세주소'] = True
             except Exception as e:
                 print(f"❌ 상세주소 입력 실패: {e}")
+                input_results['상세주소'] = False
         
-        # 4. 계약일자 입력 (readonly 처리)
-        if contract:
-            success = fill_readonly_field_selenium(driver, 'contract_day', contract)
-            if success:
-                print(f"✅ 계약일자 입력 완료: {contract}")
-        
-        # 5. 생년월일 입력 (두 필드 모두 처리)
+        # 5단계: 생년월일 (가장 복잡한 필드)
+        print("\n📝 5단계: 생년월일 처리")
         if birth:
-            print(f"🔍 생년월일 입력 시작: {birth}")
+            birth_success = False
             
             # birth 필드 (일반)
-            birth_success = False
             try:
                 element = driver.find_element(By.ID, 'birth')
-                print(f"✅ birth 필드 발견")
-                
-                # 기존 값 확인
-                old_value = element.get_attribute('value')
-                print(f"📊 기존 값: {old_value}")
-                
                 element.clear()
                 element.send_keys(birth)
-                
-                # 입력 후 값 확인
-                new_value = element.get_attribute('value')
-                print(f"📊 입력 후 값: {new_value}")
-                
-                if new_value == birth:
+                actual_value = element.get_attribute('value')
+                if actual_value == birth:
                     print(f"✅ 생년월일(birth) 입력 완료: {birth}")
                     birth_success = True
                 else:
-                    print(f"⚠️ 생년월일(birth) 값 불일치: 입력={birth}, 실제={new_value}")
-                    
+                    print(f"⚠️ 생년월일(birth) 값 불일치: 입력={birth}, 실제={actual_value}")
             except Exception as e:
                 print(f"❌ 생년월일(birth) 입력 실패: {e}")
             
-            # birth1 필드 (readonly) - JavaScript 방식 사용
-            print(f"🔍 birth1 필드 처리 시작")
+            # birth1 필드 (readonly)
             birth1_success = fill_readonly_field_selenium(driver, 'birth1', birth)
             if birth1_success:
                 print(f"✅ 생년월일(birth1) 입력 완료: {birth}")
-            else:
-                print(f"❌ 생년월일(birth1) 입력 실패")
+                birth_success = birth_success or True
             
-            # 생년월일 입력 상태 확인 및 재시도
-            if not birth_success and not birth1_success:
-                print(f"⚠️ 생년월일 입력 실패 - 재시도 중...")
+            input_results['생년월일'] = birth_success
+            
+            # 재시도 로직
+            if not birth_success:
+                print("🔄 생년월일 재시도 중...")
                 time.sleep(2)
-                
-                # 재시도: JavaScript 방식으로 강제 입력
                 try:
                     js_script = f"""
                     try {{
-                        // birth 필드 재시도
                         const birthField = document.getElementById('birth');
+                        const birth1Field = document.getElementById('birth1');
+                        
                         if (birthField) {{
-                            birthField.removeAttribute('readonly');
                             birthField.value = '{birth}';
                             birthField.dispatchEvent(new Event('input', {{ bubbles: true }}));
                             birthField.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                            console.log('생년월일 재입력 완료 (birth):', birthField.value);
                         }}
                         
-                        // birth1 필드 재시도
-                        const birth1Field = document.getElementById('birth1');
                         if (birth1Field) {{
                             birth1Field.removeAttribute('readonly');
                             birth1Field.value = '{birth}';
                             birth1Field.dispatchEvent(new Event('input', {{ bubbles: true }}));
                             birth1Field.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                            console.log('생년월일 재입력 완료 (birth1):', birth1Field.value);
+                            birth1Field.setAttribute('readonly', 'readonly');
                         }}
                         
                         return true;
@@ -199,135 +430,102 @@ def fill_fields_selenium(driver, user_data: dict) -> bool:
                     """
                     result = driver.execute_script(js_script)
                     if result:
-                        print(f"✅ 생년월일 재입력 완료 (JavaScript)")
-                    else:
-                        print(f"❌ 생년월일 재입력 실패")
+                        print(f"✅ 생년월일 재입력 완료")
+                        input_results['생년월일'] = True
                 except Exception as e:
-                    print(f"❌ 생년월일 재입력 중 오류: {e}")
-        else:
-            print(f"⚠️ 생년월일 데이터가 없습니다: {birth}")
+                    print(f"❌ 생년월일 재입력 실패: {e}")
         
-        # 6. 출고예정일자 입력 (readonly 처리)
-        if delivery:
-            success = fill_readonly_field_selenium(driver, 'delivery_sch_day', delivery)
-            if success:
-                print(f"✅ 출고예정일자 입력 완료: {delivery}")
-        
-        # 7. 성별 선택
+        # 6단계: 성별 선택 (마지막에 처리)
+        print("\n📝 6단계: 성별 선택")
         if gender:
-            print(f"🔍 성별 선택 시작: {gender}")
-            
-            # 성별 라디오 버튼 찾기 (여러 방법 시도)
-            gender_element = None
+            gender_success = False
             gender_id = 'req_sex1' if gender == '남자' else 'req_sex2'
             
-            # 방법 1: ID로 찾기
             try:
-                gender_element = driver.find_element(By.ID, gender_id)
-                print(f"✅ 성별 요소 발견 (ID): {gender_id}")
-            except Exception as e:
-                print(f"❌ ID로 성별 요소 찾기 실패: {gender_id}, 오류: {e}")
-            
-            # 방법 2: name 속성으로 찾기
-            if not gender_element:
+                # 요소 찾기
+                gender_element = None
+                
+                # 방법 1: ID로 찾기
                 try:
-                    gender_elements = driver.find_elements(By.NAME, "req_sex")
-                    for elem in gender_elements:
-                        elem_value = elem.get_attribute('value')
-                        if (gender == '남자' and elem_value == 'M') or (gender == '여자' and elem_value == 'F'):
-                            gender_element = elem
-                            print(f"✅ 성별 요소 발견 (name): {elem_value}")
-                            break
-                except Exception as e:
-                    print(f"❌ name으로 성별 요소 찾기 실패: {e}")
-            
-            # 방법 3: 라디오 버튼으로 찾기
-            if not gender_element:
-                try:
-                    radio_buttons = driver.find_elements(By.CSS_SELECTOR, "input[type='radio']")
-                    print(f"🔍 발견된 라디오 버튼 수: {len(radio_buttons)}")
-                    
-                    for radio in radio_buttons:
-                        radio_id = radio.get_attribute('id') or ''
-                        radio_name = radio.get_attribute('name') or ''
-                        radio_value = radio.get_attribute('value') or ''
-                        print(f"  라디오: id={radio_id}, name={radio_name}, value={radio_value}")
-                        
-                        if 'sex' in radio_id.lower() or 'sex' in radio_name.lower():
-                            if (gender == '남자' and ('1' in radio_id or 'M' in radio_value)) or \
-                               (gender == '여자' and ('2' in radio_id or 'F' in radio_value)):
-                                gender_element = radio
-                                print(f"✅ 성별 요소 발견 (라디오): {radio_id}")
+                    gender_element = driver.find_element(By.ID, gender_id)
+                except:
+                    pass
+                
+                # 방법 2: name 속성으로 찾기
+                if not gender_element:
+                    try:
+                        gender_elements = driver.find_elements(By.NAME, "req_sex")
+                        for elem in gender_elements:
+                            elem_value = elem.get_attribute('value')
+                            if (gender == '남자' and elem_value == 'M') or (gender == '여자' and elem_value == 'F'):
+                                gender_element = elem
                                 break
-                except Exception as e:
-                    print(f"❌ 라디오 버튼으로 성별 요소 찾기 실패: {e}")
-            
-            # 성별 선택 실행
-            if gender_element:
-                try:
-                    # 요소 상태 확인
-                    is_displayed = gender_element.is_displayed()
-                    is_enabled = gender_element.is_enabled()
-                    print(f"📊 요소 상태: 표시={is_displayed}, 활성화={is_enabled}")
-                    
+                    except:
+                        pass
+                
+                # 방법 3: 라디오 버튼으로 찾기
+                if not gender_element:
+                    try:
+                        radio_buttons = driver.find_elements(By.CSS_SELECTOR, "input[type='radio']")
+                        for radio in radio_buttons:
+                            radio_id = radio.get_attribute('id') or ''
+                            if 'sex' in radio_id.lower():
+                                if (gender == '남자' and '1' in radio_id) or (gender == '여자' and '2' in radio_id):
+                                    gender_element = radio
+                                    break
+                    except:
+                        pass
+                
+                # 성별 선택 실행
+                if gender_element:
                     # 스크롤하여 요소를 화면에 표시
                     driver.execute_script("arguments[0].scrollIntoView({block:'center'});", gender_element)
                     time.sleep(1)
                     
                     # 클릭 시도
-                    gender_element.click()
-                    print(f"✅ 성별 선택 완료: {gender}")
-                    
-                    # 클릭 후 상태 확인
-                    is_selected = gender_element.is_selected()
-                    print(f"📊 클릭 후 선택 상태: {is_selected}")
-                    
-                except Exception as e:
-                    print(f"❌ 성별 선택 실패: {e}")
-                    # JavaScript로 클릭 시도
                     try:
-                        script = """
-                        arguments[0].click();
-                        console.log('성별 선택 완료 (JavaScript)');
-                        return true;
-                        """
-                        driver.execute_script(script, gender_element)
-                        print(f"✅ 성별 선택 완료 (JavaScript): {gender}")
-                    except Exception as e2:
-                        print(f"❌ JavaScript 클릭도 실패: {e2}")
-            else:
-                print(f"❌ 성별 요소를 찾을 수 없습니다: {gender}")
+                        gender_element.click()
+                        gender_success = True
+                    except:
+                        # JavaScript로 클릭 시도
+                        driver.execute_script("arguments[0].click();", gender_element)
+                        gender_success = True
+                    
+                    if gender_success:
+                        print(f"✅ 성별 선택 완료: {gender}")
+                        input_results['성별'] = True
+                    else:
+                        print(f"❌ 성별 선택 실패: {gender}")
+                        input_results['성별'] = False
+                else:
+                    print(f"❌ 성별 요소를 찾을 수 없습니다: {gender}")
+                    input_results['성별'] = False
+                    
+            except Exception as e:
+                print(f"❌ 성별 선택 중 오류: {e}")
+                input_results['성별'] = False
+        
+        # 7단계: 최종 검증
+        print("\n📝 7단계: 입력 결과 검증")
+        print("=" * 50)
+        success_count = 0
+        total_count = len(input_results)
+        
+        for field_name, success in input_results.items():
+            status = "✅ 성공" if success else "❌ 실패"
+            print(f"{field_name}: {status}")
+            if success:
+                success_count += 1
+        
+        print("=" * 50)
+        print(f"📊 입력 성공률: {success_count}/{total_count} ({success_count/total_count*100:.1f}%)")
+        
+        if success_count >= total_count * 0.8:  # 80% 이상 성공
+            print("🎉 필드 입력이 성공적으로 완료되었습니다!")
+            return True
         else:
-            print(f"⚠️ 성별 데이터가 없습니다: {gender}")
-        
-        # 8. 신청유형 선택 (개인)
-        try:
-            select_element = Select(driver.find_element(By.ID, 'req_kind'))
-            select_element.select_by_value('P')
-            print("✅ 신청유형 선택 완료: 개인")
-        except Exception as e:
-            print(f"❌ 신청유형 선택 실패: {e}")
-        
-        # 9. 차종 선택
-        if model:
-            model_code = ''
-            if 'EV3' in model and '스탠다드' in model:
-                model_code = 'EV3_2WD_S'
-            elif '레이EV' in model or '레이 EV' in model:
-                model_code = 'RAY_4_R'
-            elif 'EV3' in model and '롱레인지' in model:
-                model_code = 'EV3_2WD_L17'
-            
-            if model_code:
-                try:
-                    select_element = Select(driver.find_element(By.ID, 'model_cd'))
-                    select_element.select_by_value(model_code)
-                    print(f"✅ 차종 선택 완료: {model} → {model_code}")
-                except Exception as e:
-                    print(f"❌ 차종 선택 실패: {e}")
-        
-        print("🎉 모든 필드 입력 완료!")
-        return True
+            print("⚠️ 일부 필드 입력에 실패했습니다. 수동 확인이 필요합니다.")
+            return False
         
     except Exception as e:
         print(f"❌ 필드 입력 중 오류 발생: {e}")
