@@ -7,8 +7,7 @@ import importlib
 import sys
 from ev_automation.browser import create_stealth_browser, create_normal_browser, create_browser_with_reuse, create_browser_simple, start_chrome_with_debugging
 from ev_automation.excel_loader import load_users_from_excel
-from ev_automation.fill_fields import build_fill_script, fill_fields_selenium
-from ev_automation.temp_save import force_temp_save_with_retry
+from ev_automation.fill_fields import build_fill_script, fill_fields_selenium_human_like
 from ev_automation.file_attachment import attach_pdf_files, find_and_click_submit_button, handle_final_popup
 from selenium.webdriver.common.by import By
 
@@ -382,26 +381,42 @@ class AutomationGUI:
                 self.log_message(f"\n{'='*50}")
                 self.log_message(f"👤 사용자 처리 시작: {user['성명']}")
                 
-                # URL 확인
+                # 신청서 페이지 감지 (URL 또는 필드 존재)
                 try:
-                    current_url = self.driver.current_url
-                    if 'sellerApplyform' in current_url:
-                        self.log_message(f"✅ 신청서 페이지 감지됨: {current_url}")
+                    on_form_page = False
+                    try:
+                        current_url = (self.driver.current_url or '').lower()
+                        if any(s in current_url for s in ['sellerapplyform', 'applyform', 'apply']):
+                            on_form_page = True
+                    except Exception:
+                        pass
+                    if not on_form_page:
+                        try:
+                            _probe = self.driver.find_element(By.ID, 'req_nm')
+                            on_form_page = _probe is not None
+                        except Exception:
+                            on_form_page = False
+                    if on_form_page:
+                        self.log_message("✅ 신청서 페이지 감지됨")
                     else:
-                        self.log_message(f"❌ 신청서 페이지가 아닙니다: {current_url}")
+                        cu = ''
+                        try:
+                            cu = self.driver.current_url
+                        except Exception:
+                            pass
+                        self.log_message(f"❌ 신청서 페이지가 아닙니다: {cu}")
                         continue
                 except Exception as e:
-                    self.log_message(f"❌ URL 확인 실패: {e}")
+                    self.log_message(f"❌ 페이지 감지 실패: {e}")
                     continue
                 
                 # 1단계: 신청서 필드 자동 입력
                 self.log_message("📝 1단계: 신청서 필드 입력 중...")
                 try:
-                    # Selenium 방식으로 필드 입력 (JavaScript 대신)
-                    success = fill_fields_selenium(self.driver, user)
+                    # Fast 모드 인적 입력
+                    success = fill_fields_selenium_human_like(self.driver, user, fast_mode=True)
                     if not success:
-                        self.log_message(f"❌ {user.get('성명', '')} 필드 입력 실패")
-                        continue
+                        self.log_message(f"⚠️ {user.get('성명', '')} 필드 입력 일부 실패 (계속 진행)")
                     
                     # 생년월일 필드 누락 확인 및 재입력
                     self.log_message("🔍 생년월일 필드 누락 확인 중...")
@@ -467,6 +482,7 @@ class AutomationGUI:
                     self.log_message(f"❌ 필드 입력 실패: {e}")
                     continue
                 
+<<<<<<< HEAD
                 # 2단계: 임시저장 (개선된 버전)
                 self.log_message("💾 2단계: 임시저장 진행 중...")
                 if force_temp_save_with_retry(self.driver, max_retries=3):
@@ -474,32 +490,22 @@ class AutomationGUI:
                 else:
                     self.log_message("❌ 임시저장 실패")
                     continue
+=======
+                # 2단계: 필드 입력 완료 (임시저장부터는 수동 처리)
+                self.log_message("✅ 필드 입력 완료!")
+                self.log_message("📋 다음 단계는 수동으로 진행해주세요:")
+                self.log_message("   1. 임시저장")
+                self.log_message("   2. PDF 파일 첨부")
+                self.log_message("   3. 지원 신청 버튼 클릭")
+                self.log_message("   4. 최종 팝업 처리")
+>>>>>>> 876adf0 (필드 입력까지만 자동화하도록 수정 - 임시저장부터는 수동 처리)
                 
-                # 3단계: PDF 파일 첨부
-                self.log_message("📎 3단계: PDF 파일 첨부 중...")
-                if attach_pdf_files(self.driver, user['성명'], self.pdf_folder_path.get()):
-                    self.log_message("✅ PDF 파일 첨부 완료")
-                else:
-                    self.log_message("⚠️ PDF 파일 첨부 실패 (계속 진행)")
+                self.log_message(f"🎉 {user['성명']} 필드 입력 완료!")
                 
-                # 4단계: 지원 신청 버튼 클릭
-                self.log_message("🚀 4단계: 지원 신청 버튼 클릭 중...")
-                if find_and_click_submit_button(self.driver):
-                    self.log_message("✅ 지원 신청 버튼 클릭 완료")
-                    
-                    # 5단계: 최종 팝업 처리
-                    self.log_message("🎯 5단계: 최종 팝업 처리 중...")
-                    if handle_final_popup(self.driver):
-                        self.log_message("✅ 최종 팝업 처리 완료")
-                        # 팝업 처리 후 추가 대기 (완전한 처리 확인)
-                        time.sleep(3)
-                    else:
-                        self.log_message("⚠️ 팝업 처리 실패 (계속 진행)")
-                    
-                    self.log_message(f"🎉 {user['성명']} 완전 처리 완료!")
-                else:
-                    self.log_message(f"❌ 지원 신청 버튼 클릭 실패")
-                    continue
+                # 다음 사용자 처리 전 대기
+                if i < len(selected_users) - 1:
+                    self.log_message("⏳ 다음 사용자 처리 전 3초 대기...")
+                    time.sleep(3)
                 
                 # 다음 사용자 처리 전 대기
                 if i < len(selected_users) - 1:
