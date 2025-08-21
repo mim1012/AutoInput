@@ -255,16 +255,15 @@ class AutomationGUI:
             
             # 브라우저 생성 (재사용 옵션 적용)
             if reuse_browser:
-                # 브라우저 재사용 시도 (스텔스 브라우저 포함)
-                self.log_message("🔧 브라우저 재사용 시도 중...")
+                # 브라우저 재사용 시도 (기존 브라우저에 연결만)
+                self.log_message("🔧 기존 브라우저 연결 시도 중...")
                 self.driver = create_browser_with_reuse(1, reuse_existing=True)
                 if not self.driver:
-                    self.log_message("❌ 브라우저 재사용 실패")
-                    self.log_message("💡 새 브라우저로 재시도...")
-                    self.driver = create_browser_simple(1)
-                    if not self.driver:
-                        self.log_message("❌ 브라우저 생성 실패")
-                        return
+                    self.log_message("❌ 기존 브라우저 연결 실패")
+                    self.log_message("💡 '브라우저 재사용 시작' 버튼을 먼저 클릭하세요")
+                    return
+                else:
+                    self.log_message("✅ 기존 브라우저 연결 성공")
             else:
                 # 새 브라우저 생성 (스텔스 브라우저 우선 시도)
                 self.log_message("🔍 스텔스 브라우저 생성 중...")
@@ -289,6 +288,10 @@ class AutomationGUI:
                     if 'sellerApplyform' in current_url:
                         self.log_message("✅ 이미 신청서 페이지에 있습니다!")
                         self.log_message("📋 바로 '준비 완료' 버튼을 클릭하세요")
+                        # 신청서 페이지에 있으면 바로 준비 완료 버튼 활성화
+                        self.root.after(0, lambda: self.ready_button.config(state=tk.NORMAL))
+                        self.progress_var.set("신청서 페이지 감지됨 - '준비 완료' 버튼 클릭 가능")
+                        return
                     elif 'login' in current_url.lower() or 'portal' in current_url:
                         self.log_message("📋 현재 상태:")
                         self.log_message("   1. 로그인이 필요합니다")
@@ -302,6 +305,11 @@ class AutomationGUI:
                 except Exception as e:
                     self.log_message(f"⚠️ 페이지 상태 확인 실패: {e}")
                     self.log_message("📋 신청서 페이지로 이동 후 '준비 완료' 버튼을 클릭하세요")
+                
+                # 브라우저 재사용 모드에서는 준비 완료 버튼 활성화
+                self.root.after(0, lambda: self.ready_button.config(state=tk.NORMAL))
+                self.progress_var.set("기존 브라우저 연결됨 - 신청서 페이지로 이동 후 '준비 완료' 클릭")
+                
             else:
                 # 새 브라우저 생성한 경우
                 if not self.session_var.get():
@@ -317,12 +325,12 @@ class AutomationGUI:
                 else:
                     self.log_message("🔐 세션 유지 모드: 신청서 페이지에서 시작")
                     self.log_message("📋 신청서 페이지로 이동 후 '준비 완료' 버튼을 클릭해주세요")
+                
+                # 새 브라우저 모드에서도 준비 완료 버튼 활성화
+                self.root.after(0, lambda: self.ready_button.config(state=tk.NORMAL))
+                self.progress_var.set("수동 작업 완료 후 '준비 완료' 버튼 클릭")
             
             self.log_message("✅ 브라우저 생성 완료")
-            
-            # 준비 완료 버튼 활성화
-            self.root.after(0, lambda: self.ready_button.config(state=tk.NORMAL))
-            self.progress_var.set("수동 작업 완료 후 '준비 완료' 버튼 클릭")
             
         except Exception as e:
             self.log_message(f"❌ 자동화 오류: {str(e)}")

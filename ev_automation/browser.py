@@ -86,13 +86,12 @@ def create_browser_with_reuse(profile_id: int, reuse_existing: bool = True):
             chrome_options = Options()
             chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
             
-            # 스텔스 옵션 추가
-            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
+            # 디버깅 모드 연결 시에는 최소한의 옵션만 사용
+            # 스텔스 옵션은 연결 후에 JavaScript로 적용
             
             try:
                 driver = webdriver.Chrome(options=chrome_options)
+                # 연결 성공 후 스텔스 옵션 적용
                 driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
                 print("[INFO] 기존 브라우저에 연결 성공")
                 return driver
