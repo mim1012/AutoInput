@@ -1,0 +1,195 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUI 자동화 필드 매핑 분석 보고서</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #333; }
+        .mapping-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .mapping-table th, .mapping-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        .mapping-table th { background: #f8f9fa; font-weight: bold; }
+        .mapping-table tr:nth-child(even) { background: #f9f9f9; }
+        .processing-order { background: #e9ecef; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .special-handling { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+        .field-id { font-family: monospace; background: #f8f9fa; padding: 2px 6px; border-radius: 3px; }
+        .data-key { font-weight: bold; color: #007bff; }
+        .status-success { color: #28a745; }
+        .status-warning { color: #ffc107; }
+        .status-info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 GUI 자동화 필드 매핑 분석 보고서</h1>
+        
+        <h2>📊 데이터-필드 매핑 테이블</h2>
+        <table class="mapping-table">
+            <thead>
+                <tr>
+                    <th>순서</th>
+                    <th>데이터 키</th>
+                    <th>필드 ID</th>
+                    <th>필드 타입</th>
+                    <th>특별 처리</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td>1</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">req_nm</td>
+                    <td>텍스트 입력</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>2</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">mobile</td>
+                    <td>휴대폰 번호</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>3</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">email</td>
+                    <td>이메일</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>4</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">phone</td>
+                    <td>전화번호</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>5</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">addr</td>
+                    <td>주소 (readonly)</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>6</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">addr_detail</td>
+                    <td>상세주소</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>7</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">req_cnt</td>
+                    <td>신청대수</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>8</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">contract_day</td>
+                    <td>날짜 (readonly)</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>9</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">birth</td>
+                    <td>생년월일</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>10</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">birth1</td>
+                    <td>생년월일 (readonly)</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>11</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">delivery_sch_day</td>
+                    <td>출고예정일자 (readonly)</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>12</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">req_kind</td>
+                    <td>신청유형 선택</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+                <tr>
+                    <td>13</td>
+                    <td class="data-key">신청대수</td>
+                    <td class="field-id">model_cd</td>
+                    <td>차종 선택</td>
+                    <td>일반 입력</td>
+                    <td class="status-success">✅ 정상</td>
+                </tr>
+
+            </tbody>
+        </table>
+        
+        <h2>🔄 처리 순서</h2>
+        <div class="processing-order">
+            <p><strong>1.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>req_nm</span></p>
+            <p><strong>2.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>mobile</span></p>
+            <p><strong>3.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>email</span></p>
+            <p><strong>4.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>phone</span></p>
+            <p><strong>5.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>addr</span></p>
+            <p><strong>6.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>addr_detail</span></p>
+            <p><strong>7.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>req_cnt</span></p>
+            <p><strong>8.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>contract_day</span></p>
+            <p><strong>9.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>birth</span></p>
+            <p><strong>10.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>birth1</span></p>
+            <p><strong>11.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>delivery_sch_day</span></p>
+            <p><strong>12.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>req_kind</span></p>
+            <p><strong>13.</strong> <span class='data-key'>신청대수</span> → <span class='field-id'>model_cd</span></p>
+
+        </div>
+        
+        <h2>⚙️ 특별 처리 로직</h2>
+        <div class="special-handling">
+
+        </div>
+        
+        <h2>📈 분석 요약</h2>
+        <ul>
+            <li><strong>총 데이터 필드:</strong> 1개</li>
+            <li><strong>총 HTML 필드:</strong> 1개</li>
+            <li><strong>매핑 완료:</strong> 1개</li>
+            <li><strong>특별 처리:</strong> 0개</li>
+        </ul>
+    </div>
+</body>
+</html>

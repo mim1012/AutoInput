@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>필드 자동 입력 테스트</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: inline-block; width: 120px; font-weight: bold; }
+        input, select { padding: 5px; width: 200px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .test-result { margin-top: 20px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+    <h1>필드 자동 입력 테스트</h1>
+    
+    <button onclick="runAutoFill()">자동 입력 실행</button>
+    <button onclick="clearAllFields()">모든 필드 초기화</button>
+    
+    <div class="test-result">
+        <h3>테스트 결과:</h3>
+        <div id="testResult">대기 중...</div>
+    </div>
+    
+    <form id="editForm">
+        <div class="form-group">
+            <label>성명:</label>
+            <input type="text" id="req_nm" name="req_nm" value="">
+        </div>
+        
+        <div class="form-group">
+            <label>휴대전화:</label>
+            <input type="text" id="mobile" name="mobile" value="">
+        </div>
+        
+        <div class="form-group">
+            <label>이메일:</label>
+            <input type="text" id="email" name="email" value="">
+        </div>
+        
+        <div class="form-group">
+            <label>전화:</label>
+            <input type="text" id="phone" name="phone" value="">
+        </div>
+        
+        <div class="form-group">
+            <label>주소:</label>
+            <input type="text" id="addr" name="addr" value="" readonly="readonly">
+        </div>
+        
+        <div class="form-group">
+            <label>상세주소:</label>
+            <input type="text" id="addr_detail" name="addr_detail" value="">
+        </div>
+        
+        <div class="form-group">
+            <label>계약일자:</label>
+            <input type="text" id="contract_day" name="contract_day" value="" readonly="readonly">
+        </div>
+        
+        <div class="form-group">
+            <label>생년월일:</label>
+            <input type="text" id="birth" name="birth" value="">
+            <input type="text" id="birth1" name="birth1" value="" readonly="readonly">
+        </div>
+        
+        <div class="form-group">
+            <label>출고예정일자:</label>
+            <input type="text" id="delivery_sch_day" name="delivery_sch_day" value="" readonly="readonly">
+        </div>
+        
+        <div class="form-group">
+            <label>성별:</label>
+            <input type="radio" id="req_sex1" name="req_sex" value="M"> 남자
+            <input type="radio" id="req_sex2" name="req_sex" value="F"> 여자
+        </div>
+        
+        <div class="form-group">
+            <label>신청유형:</label>
+            <select id="req_kind" name="req_kind">
+                <option value="">==선택==</option>
+                <option value="P">개인</option>
+                <option value="G">단체</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>신청차종:</label>
+            <select id="model_cd" name="model_cd">
+                <option value="">=======선택=======</option>
+                <option value="EV3_2WD_S">EV3 스탠다드 2WD / 일반승용</option>
+                <option value="EV3_2WD_L17">EV3 롱레인지 2WD 17인치 / 일반승용</option>
+                <option value="RAY_4_R">레이 EV 2WD 14인치 4인승 승용 / 경·소형</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>신청대수:</label>
+            <input type="text" id="req_cnt" name="req_cnt" value="">
+        </div>
+    </form>
+    
+    <script>
+        // 자동 입력 함수
+        function runAutoFill() {
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.innerHTML = '자동 입력 실행 중...';
+            
+            try {
+                
+    try {
+      console.log('자동 입력 시작...');
+      
+      // 기본 정보 입력
+      const nm=document.getElementById('req_nm'); if(nm) { nm.value='홍길동'; console.log('성명 입력:', '홍길동'); }
+      const mb=document.getElementById('mobile'); if(mb) { mb.value='010-1234-5678'; console.log('휴대폰 입력:', '010-1234-5678'); }
+      const em=document.getElementById('email'); if(em) { em.value='test@example.com'; console.log('이메일 입력:', 'test@example.com'); }
+      const ph=document.getElementById('phone'); if(ph) { ph.value='02-1234-5678'; console.log('전화 입력:', '02-1234-5678'); }
+      
+      // 주소 입력
+      const ad=document.querySelector('input[name="addr"]')||document.getElementById('addr'); 
+      if(ad) {
+        ad.removeAttribute('readonly'); 
+        ad.value='서울특별시 강남구 테헤란로 123'; 
+        ad.dispatchEvent(new Event('input', {bubbles:true}));
+        console.log('주소 입력:', '서울특별시 강남구 테헤란로 123');
+      }
+      
+      const ad2=document.getElementById('addr_detail'); 
+      if(ad2) { 
+        ad2.value='456동 789호'; 
+        ad2.dispatchEvent(new Event('input', {bubbles:true})); 
+        ad2.dispatchEvent(new Event('change', {bubbles:true})); 
+        console.log('상세주소 입력:', '456동 789호');
+      }
+      
+      // 신청대수 입력
+      const cnt=document.getElementById('req_cnt'); if(cnt) { cnt.value='1'; console.log('신청대수 입력:', '1'); }
+      
+      // 계약일자 입력 (readonly 처리)
+      const ct=document.getElementById('contract_day'); 
+      if(ct) {
+        ct.removeAttribute('readonly'); 
+        ct.value='2025-01-15'; 
+        ct.setAttribute('readonly','readonly'); 
+        ct.dispatchEvent(new Event('change', {bubbles:true}));
+        console.log('계약일자 입력:', '2025-01-15');
+      }
+      
+      // 생년월일 입력 (두 필드 모두 처리)
+      const hb=document.getElementById('birth'); 
+      if(hb) { 
+        hb.value='1990-05-20'; 
+        console.log('생년월일(birth) 입력:', '1990-05-20');
+      }
+      
+      const bf=document.getElementById('birth1'); 
+      if(bf) { 
+        bf.removeAttribute('readonly'); 
+        bf.value='1990-05-20'; 
+        bf.dispatchEvent(new Event('input', {bubbles:true})); 
+        bf.dispatchEvent(new Event('change', {bubbles:true})); 
+        bf.setAttribute('readonly','readonly'); 
+        console.log('생년월일(birth1) 입력:', '1990-05-20');
+      }
+      
+      // 출고예정일자 입력 (readonly 처리)
+      const dv=document.getElementById('delivery_sch_day'); 
+      if(dv) { 
+        dv.removeAttribute('readonly'); 
+        dv.value='2025-02-15'; 
+        dv.setAttribute('readonly','readonly'); 
+        dv.dispatchEvent(new Event('change', {bubbles:true})); 
+        console.log('출고예정일자 입력:', '2025-02-15');
+      }
+      
+      // 성별 선택
+      const gid = ('남자'==='남자') ? 'req_sex1' : 'req_sex2'; 
+      const r=document.getElementById(gid); 
+      if(r) { 
+        r.checked=true; 
+        r.click(); 
+        r.dispatchEvent(new Event('change', {bubbles:true})); 
+        console.log('성별 선택:', '남자');
+      }
+      
+      // 신청유형 선택 (개인)
+      const kind=document.getElementById('req_kind'); 
+      if(kind) { 
+        kind.value='P'; 
+        kind.dispatchEvent(new Event('change', {bubbles:true})); 
+        console.log('신청유형 선택: 개인');
+      }
+      
+      // 차종 선택
+      let modelVal='';
+      if ('EV3 스탠다드'.includes('EV3') && 'EV3 스탠다드'.includes('스탠다드')) modelVal='EV3_2WD_S';
+      else if ('EV3 스탠다드'.includes('레이EV') || 'EV3 스탠다드'.includes('레이 EV')) modelVal='RAY_4_R';
+      else if ('EV3 스탠다드'.includes('EV3') && 'EV3 스탠다드'.includes('롱레인지')) modelVal='EV3_2WD_L17';
+      
+      const modelEl=document.getElementById('model_cd'); 
+      if(modelEl && modelVal) { 
+        modelEl.value=modelVal; 
+        modelEl.dispatchEvent(new Event('change', {bubbles:true})); 
+        console.log('차종 선택:', modelVal);
+      }
+      
+      console.log('자동 입력 완료');
+      return true;
+    } catch(e) { 
+      console.error('자동 입력 오류:', e); 
+      return false; 
+    }
+    
+                resultDiv.innerHTML = '✅ 자동 입력 완료!';
+                resultDiv.style.color = 'green';
+            } catch(e) {
+                resultDiv.innerHTML = '❌ 자동 입력 실패: ' + e.message;
+                resultDiv.style.color = 'red';
+            }
+        }
+        
+        // 모든 필드 초기화
+        function clearAllFields() {
+            const inputs = document.querySelectorAll('input[type="text"], input[type="email"], select');
+            inputs.forEach(input => {
+                input.value = '';
+            });
+            
+            const radios = document.querySelectorAll('input[type="radio"]');
+            radios.forEach(radio => {
+                radio.checked = false;
+            });
+            
+            document.getElementById('testResult').innerHTML = '모든 필드가 초기화되었습니다.';
+        }
+        
+        // 페이지 로드 시 초기화
+        window.onload = function() {
+            document.getElementById('testResult').innerHTML = '테스트 준비 완료. "자동 입력 실행" 버튼을 클릭하세요.';
+        };
+    </script>
+</body>
+</html>
