@@ -5,7 +5,7 @@ import os
 import time
 import importlib
 import sys
-from ev_automation.browser import create_stealth_browser, create_normal_browser
+from ev_automation.browser import create_stealth_browser, create_normal_browser, create_browser_with_reuse, create_browser_simple, start_chrome_with_debugging
 from ev_automation.excel_loader import load_users_from_excel
 from ev_automation.fill_fields import build_fill_script, fill_fields_selenium
 from ev_automation.temp_save import force_temp_save_with_retry
@@ -247,16 +247,29 @@ class AutomationGUI:
             reuse_browser = self.reuse_browser_var.get()
             self.log_message(f"🔧 브라우저 재사용: {'활성화' if reuse_browser else '비활성화'}")
             
-            # 스텔스 브라우저 생성 (자동화 감지 우회)
-            self.log_message("🔍 스텔스 브라우저 생성 중...")
-            self.driver = create_stealth_browser()
-            if not self.driver:
-                self.log_message("❌ 스텔스 브라우저 생성 실패")
-                self.log_message("💡 일반 브라우저로 재시도...")
-                self.driver = create_normal_browser()
+            # 브라우저 생성 (재사용 옵션 적용)
+            if reuse_browser:
+                # 브라우저 재사용 시도 (스텔스 브라우저 포함)
+                self.log_message("🔧 브라우저 재사용 시도 중...")
+                self.driver = create_browser_with_reuse(1, reuse_existing=True)
                 if not self.driver:
-                    self.log_message("❌ 브라우저 생성 실패")
-                    return
+                    self.log_message("❌ 브라우저 재사용 실패")
+                    self.log_message("💡 새 브라우저로 재시도...")
+                    self.driver = create_browser_simple(1)
+                    if not self.driver:
+                        self.log_message("❌ 브라우저 생성 실패")
+                        return
+            else:
+                # 새 브라우저 생성 (스텔스 브라우저 우선 시도)
+                self.log_message("🔍 스텔스 브라우저 생성 중...")
+                self.driver = create_stealth_browser()
+                if not self.driver:
+                    self.log_message("❌ 스텔스 브라우저 생성 실패")
+                    self.log_message("💡 일반 브라우저로 재시도...")
+                    self.driver = create_normal_browser()
+                    if not self.driver:
+                        self.log_message("❌ 브라우저 생성 실패")
+                        return
             
             # 브라우저 재사용 여부에 따른 안내 메시지
             if reuse_browser:
@@ -517,25 +530,27 @@ class AutomationGUI:
             self.driver = None
     
     def start_browser_reuse(self):
-        """스텔스 브라우저 모드 시작"""
+        """브라우저 재사용 모드 시작"""
         try:
-            self.log_message("🔧 스텔스 브라우저 모드 시작...")
+            self.log_message("🔧 브라우저 재사용 모드 시작...")
             self.log_message("📋 다음 단계를 진행해주세요:")
-            self.log_message("   1. 스텔스 브라우저가 시작됩니다")
+            self.log_message("   1. Chrome이 디버깅 모드로 시작됩니다")
             self.log_message("   2. 로그인 및 본인인증을 완료하세요")
             self.log_message("   3. 신청서 페이지로 이동하세요")
             self.log_message("   4. '자동화 시작' 버튼을 클릭하세요")
             
-            # 스텔스 브라우저 생성
-            self.driver = create_stealth_browser()
-            if self.driver:
-                self.log_message("✅ 스텔스 브라우저 시작 완료")
-                self.log_message("🔐 자동화 감지 우회 모드로 실행됩니다")
+            # Chrome 디버깅 모드로 시작
+            if start_chrome_with_debugging(1):
+                self.log_message("✅ Chrome 디버깅 모드 시작 완료")
+                self.log_message("🔐 이제 브라우저 재사용이 가능합니다")
+                self.log_message("💡 '브라우저 재사용' 체크박스를 활성화하고 '자동화 시작'을 클릭하세요")
             else:
-                self.log_message("❌ 스텔스 브라우저 시작 실패")
+                self.log_message("❌ Chrome 디버깅 모드 시작 실패")
+                messagebox.showerror("오류", "Chrome 디버깅 모드 시작에 실패했습니다.")
                 
         except Exception as e:
-            self.log_message(f"❌ 스텔스 브라우저 시작 실패: {e}")
+            self.log_message(f"❌ 브라우저 재사용 시작 실패: {e}")
+            messagebox.showerror("오류", f"브라우저 재사용 시작 중 오류가 발생했습니다: {e}")
     
     def log_message(self, message):
         self.log_text.insert(tk.END, f"{message}\n")
