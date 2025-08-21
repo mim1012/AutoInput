@@ -230,25 +230,161 @@ def fill_fields_selenium(driver, user_data: dict) -> bool:
                         print(f"✅ 정확한 매칭 발견: {option_text} → {option_value}")
                         break
                 
-                # 2단계: 부분 매칭 (정확한 매칭이 없을 경우)
+                # 2단계: 키워드 기반 매칭 (더 정확한 매칭이 없을 경우)
                 if not model_code:
-                    if 'ev3' in model_lower and '스탠다드' in model_lower:
-                        for option_text, option_value in available_options:
-                            if 'ev3' in option_text.lower() and '스탠다드' in option_text.lower():
-                                model_code = option_value
-                                print(f"✅ EV3 스탠다드 매칭: {option_text} → {option_value}")
-                                break
-                    elif 'ev3' in model_lower and '롱레인지' in model_lower:
-                        for option_text, option_value in available_options:
-                            if 'ev3' in option_text.lower() and '롱레인지' in option_text.lower():
-                                model_code = option_value
-                                print(f"✅ EV3 롱레인지 매칭: {option_text} → {option_value}")
-                                break
-                    elif '레이' in model_lower:
+                    # "더뉴" 접두사 제거하고 매칭
+                    model_without_prefix = model_lower.replace('더뉴', '').replace('the new', '').strip()
+                    
+                    # EV6 관련 매칭
+                    if 'ev6' in model_without_prefix:
+                        if '2wd' in model_without_prefix and '19' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev6' in option_text.lower() and '2wd' in option_text.lower() and '19' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV6 2WD 19인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '2wd' in model_without_prefix and '20' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev6' in option_text.lower() and '2wd' in option_text.lower() and '20' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV6 2WD 20인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '4wd' in model_without_prefix and '19' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev6' in option_text.lower() and '4wd' in option_text.lower() and '19' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV6 4WD 19인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '4wd' in model_without_prefix and '20' in option_text.lower():
+                            for option_text, option_value in available_options:
+                                if 'ev6' in option_text.lower() and '4wd' in option_text.lower() and '20' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV6 4WD 20인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif 'gt' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev6' in option_text.lower() and 'gt' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV6 GT 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '스탠다드' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev6' in option_text.lower() and '스탠다드' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV6 스탠다드 매칭: {option_text} → {option_value}")
+                                    break
+                        else:
+                            # EV6만으로 매칭
+                            for option_text, option_value in available_options:
+                                if 'ev6' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV6 기본 매칭: {option_text} → {option_value}")
+                                    break
+                    
+                    # EV9 관련 매칭
+                    elif 'ev9' in model_without_prefix:
+                        if '2wd' in model_without_prefix and '19' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev9' in option_text.lower() and '2wd' in option_text.lower() and '19' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV9 2WD 19인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '2wd' in model_without_prefix and '20' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev9' in option_text.lower() and '2wd' in option_text.lower() and '20' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV9 2WD 20인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '4wd' in model_without_prefix and '19' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev9' in option_text.lower() and '4wd' in option_text.lower() and '19' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV9 4WD 19인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '4wd' in model_without_prefix and '21' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev9' in option_text.lower() and '4wd' in option_text.lower() and '21' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV9 4WD 21인치 매칭: {option_text} → {option_value}")
+                                    break
+                        elif 'gtl' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev9' in option_text.lower() and 'gtl' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV9 GTL 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '스탠다드' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev9' in option_text.lower() and '스탠다드' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV9 스탠다드 매칭: {option_text} → {option_value}")
+                                    break
+                        else:
+                            # EV9만으로 매칭
+                            for option_text, option_value in available_options:
+                                if 'ev9' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV9 기본 매칭: {option_text} → {option_value}")
+                                    break
+                    
+                    # EV3 관련 매칭
+                    elif 'ev3' in model_without_prefix:
+                        if '스탠다드' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev3' in option_text.lower() and '스탠다드' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV3 스탠다드 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '롱레인지' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev3' in option_text.lower() and '롱레인지' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV3 롱레인지 매칭: {option_text} → {option_value}")
+                                    break
+                        else:
+                            # EV3만으로 매칭
+                            for option_text, option_value in available_options:
+                                if 'ev3' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV3 기본 매칭: {option_text} → {option_value}")
+                                    break
+                    
+                    # EV4 관련 매칭
+                    elif 'ev4' in model_without_prefix:
+                        if '스탠다드' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev4' in option_text.lower() and '스탠다드' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV4 스탠다드 매칭: {option_text} → {option_value}")
+                                    break
+                        elif '롱레인지' in model_without_prefix:
+                            for option_text, option_value in available_options:
+                                if 'ev4' in option_text.lower() and '롱레인지' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV4 롱레인지 매칭: {option_text} → {option_value}")
+                                    break
+                        else:
+                            # EV4만으로 매칭
+                            for option_text, option_value in available_options:
+                                if 'ev4' in option_text.lower():
+                                    model_code = option_value
+                                    print(f"✅ EV4 기본 매칭: {option_text} → {option_value}")
+                                    break
+                    
+                    # 레이 EV 관련 매칭
+                    elif '레이' in model_without_prefix:
                         for option_text, option_value in available_options:
                             if '레이' in option_text.lower():
                                 model_code = option_value
                                 print(f"✅ 레이EV 매칭: {option_text} → {option_value}")
+                                break
+                    
+                    # NIRO EV 관련 매칭
+                    elif 'niro' in model_without_prefix:
+                        for option_text, option_value in available_options:
+                            if 'niro' in option_text.lower():
+                                model_code = option_value
+                                print(f"✅ NIRO EV 매칭: {option_text} → {option_value}")
                                 break
                 
                 # 3단계: 기본값 매칭 (매칭이 없을 경우)
