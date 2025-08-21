@@ -658,6 +658,25 @@ def fill_fields_selenium(driver, user_data: dict) -> bool:
         
         if success_count >= total_count * 0.8:  # 80% 이상 성공
             print("🎉 필드 입력이 성공적으로 완료되었습니다!")
+            
+            # 필드 입력 완료 후 안정화를 위한 지연시간 추가
+            print("⏳ 페이지 안정화 대기 중... (5초)")
+            time.sleep(5)
+            
+            # 추가 안정화: 페이지 스크롤 및 이벤트 처리 대기
+            try:
+                # 페이지 하단으로 스크롤 (임시저장 버튼이 하단에 있을 수 있음)
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(2)
+                
+                # 페이지 상단으로 스크롤
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(1)
+                
+                print("✅ 페이지 안정화 완료")
+            except Exception as e:
+                print(f"⚠️ 페이지 안정화 중 오류: {e}")
+            
             return True
         else:
             print("⚠️ 일부 필드 입력에 실패했습니다. 수동 확인이 필요합니다.")

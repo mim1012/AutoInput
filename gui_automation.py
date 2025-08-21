@@ -478,6 +478,10 @@ class AutomationGUI:
                     
                     time.sleep(3)
                     self.log_message("✅ 신청서 필드 입력 완료")
+                    
+                    # 필드 입력 완료 후 추가 안정화 대기
+                    self.log_message("⏳ 임시저장 준비를 위한 추가 대기 중... (3초)")
+                    time.sleep(3)
                 except Exception as e:
                     self.log_message(f"❌ 필드 입력 실패: {e}")
                     continue
