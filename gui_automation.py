@@ -25,6 +25,7 @@ class AutomationGUI:
         self.automation_running = False
         self.driver = None
         self.session_maintained = False  # 세션 유지 상태
+        self.browser_reuse_started = False  # 브라우저 재사용 모드 시작 여부
         
         self.setup_ui()
     
@@ -220,6 +221,11 @@ class AutomationGUI:
         if not selected_indices:
             messagebox.showerror("오류", "처리할 사용자를 선택해주세요.")
             return
+        
+        # 브라우저 재사용 모드가 시작되었는지 확인
+        if self.browser_reuse_started and not self.reuse_browser_var.get():
+            self.log_message("🔧 브라우저 재사용 모드가 시작되었으므로 자동으로 활성화합니다")
+            self.reuse_browser_var.set(True)
         
         # 세션 유지 확인
         if self.session_var.get():
@@ -543,7 +549,12 @@ class AutomationGUI:
             if start_chrome_with_debugging(1):
                 self.log_message("✅ Chrome 디버깅 모드 시작 완료")
                 self.log_message("🔐 이제 브라우저 재사용이 가능합니다")
-                self.log_message("💡 '브라우저 재사용' 체크박스를 활성화하고 '자동화 시작'을 클릭하세요")
+                
+                # 브라우저 재사용 체크박스 자동 활성화
+                self.reuse_browser_var.set(True)
+                self.browser_reuse_started = True  # 브라우저 재사용 모드 시작됨
+                self.log_message("✅ 브라우저 재사용 체크박스가 자동으로 활성화되었습니다")
+                self.log_message("💡 이제 '자동화 시작' 버튼을 클릭하세요")
             else:
                 self.log_message("❌ Chrome 디버깅 모드 시작 실패")
                 messagebox.showerror("오류", "Chrome 디버깅 모드 시작에 실패했습니다.")
