@@ -314,6 +314,29 @@ def normalize_date_string(date_text: str) -> str | None:
     if not date_text:
         return None
     s = str(date_text).strip()
+    
+    # 0) Excel 날짜 숫자 처리 (예: 29269 → 1980-02-18)
+    try:
+        import datetime
+        excel_date_num = float(s)
+        if 1 <= excel_date_num <= 100000:  # Excel 날짜 범위
+            # Excel의 기준일 (1900-01-01)부터 계산
+            base_date = datetime.datetime(1900, 1, 1)
+            target_date = base_date + datetime.timedelta(days=int(excel_date_num) - 2)  # Excel은 1900년을 윤년으로 계산
+            return target_date.strftime("%Y-%m-%d")
+    except (ValueError, OverflowError):
+        pass
+    
+    # 3) 한국어 날짜 형식: "1980년 02월 18일", "1980년 2월 18일" 등
+    korean_pattern = r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일"
+    korean_match = re.search(korean_pattern, s)
+    if korean_match:
+        try:
+            y, m, d = int(korean_match.group(1)), int(korean_match.group(2)), int(korean_match.group(3))
+            return f"{y:04d}-{m:02d}-{d:02d}"
+        except Exception:
+            pass
+    
     # 1) YYYY-MM-DD / YYYY.MM.DD / YYYY/MM/DD
     for sep in ("-", ".", "/"):
         parts = s.split(sep)
@@ -480,6 +503,331 @@ def fill_fields_selenium_human_like(driver, user_data: dict, fast_mode: bool = T
         # 편집모드 전환 (noedit/disabled 해제)
         ensure_edit_mode(driver)
         
+        # 0단계: 신청유형(개인) 먼저 선택
+        try:
+            print("\n📝 0단계: 신청유형(개인) 먼저 선택")
+            success_kind_init = human_like_select(driver, 'req_kind', '개인', '신청유형')
+            input_results['신청유형(초기)'] = success_kind_init
+            pause(0.1, 0.2)
+            
+            # 신청유형 선택 완료 후 충분한 대기
+            print("⏳ 신청유형 선택 완료 대기 중...")
+            time.sleep(1.0)  # 충분한 대기 시간
+            
+        except Exception as e:
+            print(f"❌ 신청유형 초기 선택 실패: {e}")
+            input_results['신청유형(초기)'] = False
+
+        # 0.1단계: 우선순위 매핑은 공동명의자 처리 후에 적용
+
+        # 0.2단계: 공동명의자 처리 (개인 신청에서만) - 신청유형 선택 완료 후
+        try:
+            joint_cnt = None
+            # 다양한 키 인식
+            for k in ['공동명의자수', '공동명의자 수', '공동명의 수', '공동수', '공동명의인수']:
+                if user_data.get(k) not in (None, ''):
+                    try:
+                        joint_cnt = int(str(user_data.get(k)).strip())
+                        break
+                    except Exception:
+                        pass
+            
+            # 엑셀에 공동명의자 수가 없으면 기본값 1로 설정
+            desired_count = joint_cnt if (joint_cnt is not None and joint_cnt > 0) else 1
+    
+            # 첫 번째 공동명의자 이름과 생년월일 데이터 준비
+            nm_val = None
+            br_val = None
+            
+            # 다양한 키로 이름 찾기
+            nm_keys = ['공동1_성명', '공동명의자1_성명', '공동1 성명', '공동명의자 성명', '공동명의자성명', '공동 성명', '공동성명', '공동명의자 이름']
+            for k in nm_keys:
+                if user_data.get(k):
+                    nm_val = user_data.get(k)
+                    break
+            
+            # 다양한 키로 생년월일 찾기
+            br_keys = ['공동1_생년월일', '공동명의자1_생년월일', '공동1 생년월일', '공동명의자 생년월일', '공동명의자생년월일', '공동 생년월일', '공동생년월일']
+            for k in br_keys:
+                if user_data.get(k):
+                    br_val = normalize_date_string(user_data.get(k))
+                    break
+            
+            # 정규화된 키로도 시도
+            if not nm_val or not br_val:
+                try:
+                    import re as _re
+                    normalized = { _re.sub(r"\s+", "", k): k for k in user_data.keys() }
+                    if not nm_val:
+                        for alias in ['공동명의자성명','공동성명','공동명의자이름']:
+                            if alias in normalized:
+                                v = user_data.get(normalized[alias])
+                                if v not in (None, ''):
+                                    nm_val = v
+                                    break
+                    if not br_val:
+                        for alias in ['공동명의자생년월일','공동생년월일']:
+                            if alias in normalized:
+                                v = user_data.get(normalized[alias])
+                                if v not in (None, ''):
+                                    br_val = normalize_date_string(v)
+                                    break
+                except Exception:
+                    pass
+    
+            print(f"🧩 공동명의자 처리 시작: 목표 {desired_count}명 (엑셀: {joint_cnt})")
+            print(f"📝 이름: {nm_val}, 생년월일: {br_val}")
+            
+            # 디버깅: 사용 가능한 키들 출력
+            print("🔍 사용 가능한 엑셀 키들:")
+            for key, value in user_data.items():
+                if '공동' in key or 'joint' in key.lower():
+                    print(f"  - {key}: {value}")
+            
+            # 디버깅: 생년월일 찾기 과정 상세 출력
+            print("🔍 생년월일 찾기 과정:")
+            for k in br_keys:
+                found_value = user_data.get(k)
+                print(f"  - {k}: {found_value}")
+                if found_value:
+                    normalized = normalize_date_string(found_value)
+                    print(f"    → 정규화: {normalized}")
+            
+            # execute_async_script로 타이밍 문제 해결
+            js_async_joint = """
+            const desired = arguments[0];
+            const nm = arguments[1];
+            const birth = arguments[2];
+            const done = arguments[arguments.length - 1]; // async callback
+
+            function setCountAndOpen(){
+              const cnt = document.querySelector('#jn_cnt');
+              if(!cnt){ 
+                console.log('❌ #jn_cnt not found');
+                return done('fail: #jn_cnt not found'); 
+              }
+              try{ cnt.removeAttribute('disabled'); cnt.removeAttribute('readonly'); }catch(e){}
+              cnt.value = String(desired);
+              try{ cnt.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+              try{ cnt.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+              console.log('✏️ 공동명의자 수=' + String(desired) + ' 입력');
+
+              const btn = document.querySelector('#t_jnInfo1 button.btn-black[type="button"], #t_jnInfo1 button[onclick*="createNewJointInfo"]');
+              if(btn) { 
+                try{ btn.click(); console.log('✅ 확인 버튼 클릭'); }catch(e){ console.log('❌ 확인 버튼 클릭 실패:', e); } 
+              }
+              try{ 
+                if(typeof window.createNewJointInfo==='function') {
+                  window.createNewJointInfo(); 
+                  console.log('✅ createNewJointInfo() 직접 호출'); 
+                }
+              }catch(e){}
+            }
+
+            function waitRows(n, cb){
+              const body = document.querySelector('#jnBody');
+              if (!body) {
+                console.log('❌ #jnBody not found');
+                return cb('fail: #jnBody not found');
+              }
+
+              const current = () => body.querySelectorAll('tr.c_jnInfo').length;
+              console.log('현재 행 수:', current(), '목표:', n);
+              
+              if (current() >= n) {
+                console.log('✅ 행 생성 완료');
+                return cb(null);
+              }
+
+              const obs = new MutationObserver(()=>{
+                const newCount = body.querySelectorAll('tr.c_jnInfo').length;
+                console.log('DOM 변경 감지, 현재 행 수:', newCount);
+                if (newCount >= n){ 
+                  obs.disconnect(); 
+                  console.log('✅ 목표 행 수 달성');
+                  cb(null); 
+                }
+              });
+              obs.observe(body, {childList:true, subtree:true});
+              
+              setTimeout(()=>{ 
+                obs.disconnect(); 
+                const finalCount = body.querySelectorAll('tr.c_jnInfo').length;
+                console.log('타임아웃, 최종 행 수:', finalCount);
+                cb(finalCount>=n ? null : 'fail: timeout rows'); 
+              }, 4000);
+            }
+
+            function fillFirst(){
+              const row = document.querySelector('#jnBody tr.c_jnInfo');
+              if(!row) {
+                console.log('❌ 공동명의자 행을 찾지 못함');
+                return 'fail: no row';
+              }
+
+              const nameInput = row.querySelector('input[name="jn_name"]');
+              const birthInput = row.querySelector('input[name="jn_birth"]');
+              
+              console.log('🔍 찾은 입력 필드들:');
+              console.log('- nameInput:', nameInput);
+              console.log('- birthInput:', birthInput);
+
+              if (nameInput && nm){
+                try{ nameInput.removeAttribute('readonly'); }catch(e){}
+                nameInput.value = nm;
+                try{ nameInput.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                try{ nameInput.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+                console.log('✏️ 성명=' + nm + ' 입력');
+              }
+              
+              if (birthInput && birth){
+                try{ birthInput.removeAttribute('readonly'); }catch(e){}
+                try{ birthInput.removeAttribute('disabled'); }catch(e){}
+                birthInput.value = birth;
+                try{ birthInput.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                try{ birthInput.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+                console.log('✏️ 생년월일=' + birth + ' 입력');
+              } else {
+                // 생년월일 필드를 찾지 못한 경우 다른 선택자들 시도
+                console.log('⚠️ 기본 생년월일 필드를 찾지 못함, 다른 선택자 시도...');
+                const altBirthInputs = [
+                  row.querySelector('input[name*="birth"]'),
+                  row.querySelector('input[id*="birth"]'),
+                  row.querySelector('input[name*="birthday"]'),
+                  row.querySelector('input[id*="birthday"]'),
+                  row.querySelector('input[type="date"]'),
+                  row.querySelector('input[type="text"]')
+                ];
+                
+                for(let i = 0; i < altBirthInputs.length; i++) {
+                  const altInput = altBirthInputs[i];
+                  if(altInput && altInput !== nameInput) {
+                    console.log('🔍 대체 생년월일 필드 발견:', altInput.name || altInput.id || altInput.type);
+                    try{ altInput.removeAttribute('readonly'); }catch(e){}
+                    try{ altInput.removeAttribute('disabled'); }catch(e){}
+                    altInput.value = birth;
+                    try{ altInput.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                    try{ altInput.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+                    console.log('✏️ 생년월일(대체)=' + birth + ' 입력');
+                    break;
+                  }
+                }
+              }
+              
+              // 백업: 직접 input 선택자로도 시도
+              if(!birthInput || !birth) {
+                console.log('🔍 백업 생년월일 필드 탐색...');
+                const backupBirthInputs = [
+                  document.querySelector('input[name="jn_birth"]'),
+                  document.querySelector('input[name*="birth"]'),
+                  document.querySelector('input[id*="birth"]'),
+                  document.querySelector('input[name*="birthday"]'),
+                  document.querySelector('input[id*="birthday"]')
+                ];
+                
+                for(let i = 0; i < backupBirthInputs.length; i++) {
+                  const backupInput = backupBirthInputs[i];
+                  if(backupInput && backupInput !== nameInput) {
+                    console.log('🔍 백업 생년월일 필드 발견:', backupInput.name || backupInput.id);
+                    try{ backupInput.removeAttribute('readonly'); }catch(e){}
+                    try{ backupInput.removeAttribute('disabled'); }catch(e){}
+                    backupInput.value = birth;
+                    try{ backupInput.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                    try{ backupInput.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+                    console.log('✏️ 생년월일(백업)=' + birth + ' 입력');
+                    break;
+                  }
+                }
+              }
+              
+              return 'ok';
+            }
+
+            try{
+              setCountAndOpen();
+              waitRows(Math.max(1, Number(desired)||1), (err)=>{
+                if (err) {
+                  console.log('❌ 행 대기 실패:', err);
+                  return done(err);
+                }
+                const res = fillFirst();
+                console.log('✅ 공동명의자 입력 완료:', res);
+                done(res);
+              });
+            }catch(e){
+              console.log('❌ 전체 처리 실패:', e);
+              done('fail: ' + (e && e.message ? e.message : e));
+            }
+            """
+            
+            # 스크립트 타임아웃 설정 및 실행
+            driver.set_script_timeout(15)  # 15초 타임아웃
+            result = driver.execute_async_script(js_async_joint, desired_count, nm_val, br_val)
+            print(f"🎯 공동명의자 처리 결과: {result}")
+            
+            if result and result.startswith('fail:'):
+                print(f"⚠️ 공동명의자 처리 실패: {result}")
+
+        except Exception as e:
+            print("⚠️ 공동명의자 처리 중 오류:", e)
+        
+        # 0.3단계: 우선순위 매핑 적용 (사회계층, 다자녀, 생애최초 등)
+        try:
+            priority_text = (user_data.get('우선순위') or '').strip()
+            if priority_text:
+                print("🛠️ 우선순위 매핑 적용 시도:", priority_text)
+                has_social = ('사회계층' in priority_text and ('Y' in priority_text or '예' in priority_text))
+                is_multi_child = ('다자녀' in priority_text)
+                child_count = '2' if '2자녀' in priority_text else ('3' if '3자녀' in priority_text else ('4' if '4자녀' in priority_text or '4자녀 이상' in priority_text else ''))
+                first_buy = ('생애최초' in priority_text)
+                improve_fd = ('미세먼지' in priority_text) or ('노후경유' in priority_text) or ('택시' in priority_text)
+                improve_detail1 = ('노후경유' in priority_text or '폐차' in priority_text)
+                improve_detail2 = ('택시' in priority_text)
+                exchange = ('폐차' in priority_text) or ('수출말소' in priority_text)
+
+                # 사회계층 유형 코드 매핑
+                social_kind = ''
+                if '국가유공' in priority_text: social_kind = '1'
+                elif '장애' in priority_text: social_kind = '2'
+                elif '다자녀' in priority_text: social_kind = '3'
+                elif '다문화' in priority_text: social_kind = '4'
+                elif ('기초생활' in priority_text) or ('차상위' in priority_text): social_kind = '5'
+                elif '소상공인' in priority_text: social_kind = '6'
+                elif '기타' in priority_text: social_kind = '9'
+
+                js = f"""
+				(function(){{
+				  const click = (id) => {{ const el = document.getElementById(id); if (!el) return false; try {{ el.click(); }} catch(e) {{ el.checked=true; }} try{{ el.dispatchEvent(new Event('change',{{bubbles:true}})); }}catch(e){{}} return true; }};
+				  const selectVal = (id, v) => {{ const el = document.getElementById(id); if (!el) return false; try{{ el.disabled=false; }}catch(e){{}} el.value=v; try{{ el.dispatchEvent(new Event('change',{{bubbles:true}})); }}catch(e){{}} return true; }};
+				  const show = (sel, flag) => {{ try{{ const el=document.querySelector(sel); if(el) el.style.display = flag? '' : 'none'; }}catch(e){{}} }};
+
+				  // 사회계층
+				  if ({str(has_social).lower()}) {{ click('social_yn1'); if ('{social_kind}') {{ selectVal('social_kind','{social_kind}'); }} if ('{child_count}') {{ selectVal('children_cnt','{child_count}'); }} }}
+
+				  // 생애최초
+				  if ({str(first_buy).lower()}) {{ click('first_buy_yn1'); }}
+
+				  // 미세먼지 개선효과 관련
+				  if ({str(improve_fd).lower()}) {{ click('improve_fd_yn1'); show('#div_improve_fd_yn', true); }}
+				  if ({str(improve_detail1).lower()}) {{ const c=document.getElementById('improve_fd_detail1'); if(c) c.checked=true; }}
+				  if ({str(improve_detail2).lower()}) {{ const c2=document.getElementById('improve_fd_detail2'); if(c2) c2.checked=true; }}
+
+				  // 내연기관 폐차/수출말소 지원여부
+				  if ({str(exchange).lower()}) {{ click('exchange_yn1'); }}
+
+				  return true;
+				}})();
+				"""
+                try:
+                    driver.execute_script(js)
+                    print("✅ 우선순위 매핑 적용 완료")
+                except Exception as e:
+                    print("⚠️ 우선순위 매핑 JS 실행 실패:", e)
+            else:
+                print("ℹ️ 우선순위 정보 없음 - 스킵")
+        except Exception as e:
+            print("⚠️ 우선순위 매핑 처리 중 오류:", e)
+
         # 1단계: 기본 정보 입력 (가장 중요한 필드들부터)
         print("\n📝 1단계: 기본 정보 입력")
         
